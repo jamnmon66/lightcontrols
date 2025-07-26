@@ -1,0 +1,9 @@
+{
+  "name": "Light Controls",
+  "domain": "lightcontrols",
+  "documentation": "https://github.com/jamnmon66/lightcontrols",
+  "codeowners": ["@jamnmon66"],
+  "issue_tracker": "https://github.com/jamnmon66/lightcontrols/issues",
+  "version": "0.0.1",
+  "requirements": ["jinja2"]
+}
