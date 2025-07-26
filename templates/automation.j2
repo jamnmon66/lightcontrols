@@ -1,0 +1,318 @@
+automation:
+  - alias: {{ title }} Update Real State Sensor
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.{{ prefix }}_real_state
+    action:
+      - service: mqtt.publish
+        data:
+          retain: true
+          topic: lightcontrols/{{ room }}/{{ location }}/real_state
+          payload: "{{ '{{ states(\'binary_sensor.' ~ prefix ~ '_real_state\') | upper }}' }}"
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.{{ prefix }}_real_state
+                state: "off"
+            sequence:
+              - service: mqtt.publish
+                data:
+                  topic: lightcontrols/{{ room }}/{{ location }}/real_brightness
+                  payload: "0"
+                  retain: true
+    mode: single
+
+  - alias: {{ title }} Update Real Brightness
+    trigger:
+      - platform: state
+        entity_id: sensor.{{ prefix }}_real_brightness
+    condition:
+      - condition: state
+        entity_id: input_boolean.{{ prefix }}_lock
+        state: "off"
+    action:
+      - service: mqtt.publish
+        data:
+          retain: true
+          topic: lightcontrols/{{ room }}/{{ location }}/real_brightness
+          payload: "{{ '{{ states(\'sensor.' ~ prefix ~ '_real_brightness\') | default(\'0\') | int(\'0\') }}' }}"
+    mode: single
+
+  - alias: {{ title }} Reset Button
+    trigger:
+      - platform: mqtt
+        topic: lightcontrols/{{ room }}/{{ location }}/reset_button
+    condition:
+      - condition: state
+        entity_id: input_boolean.{{ prefix }}_lock
+        state: "off"
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.{{ prefix }}_lock
+      - service: mqtt.publish
+        data:
+          topic: lightcontrols/{{ room }}/{{ location }}/brightness_set
+          payload: "255"
+          retain: true
+      - service: mqtt.publish
+        data:
+          topic: lightcontrols/{{ room }}/{{ location }}/effect_set
+          payload: "High"
+          retain: true
+      - service: mqtt.publish
+        data:
+          topic: lightcontrols/{{ room }}/{{ location }}/automation_enabled
+          payload: "OFF"
+          retain: true
+      - service: mqtt.publish
+        data:
+          topic: lightcontrols/{{ room }}/{{ location }}/auto_brightness_entity
+          payload: "{{ auto_entity }}"
+          retain: true
+      - service: mqtt.publish
+        data:
+          topic: lightcontrols/{{ room }}/{{ location }}/real_light_entity
+          payload: "{{ real_entity }}"
+          retain: true
+      - service: mqtt.publish
+        data:
+          topic: lightcontrols/{{ room }}/{{ location }}/startup_min
+          payload: "31"
+          retain: true
+      - service: mqtt.publish
+        data:
+          topic: lightcontrols/{{ room }}/{{ location }}/startup_delay
+          payload: "0"
+          retain: true
+      {% for i in range(1, 7) %}
+      - service: mqtt.publish
+        data:
+          topic: lightcontrols/{{ room }}/{{ location }}/brightness_{{ i }}
+          payload: "{{ 5 + (i - 1) * 50 }}"
+          retain: true
+      {% endfor %}
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.{{ prefix }}_lock
+
+  - alias: {{ title }} Virtual Brightness Changed
+    trigger:
+      - platform: state
+        entity_id: sensor.{{ prefix }}_virt_brt_set
+    condition:
+      - condition: state
+        entity_id: input_boolean.{{ prefix }}_lock
+        state: "off"
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.{{ prefix }}_lock
+      - service: script.turn_on
+        data:
+          entity_id: script.{{ prefix }}_set_brightness
+      - wait_template: "{{ '{{ states(\'script.' ~ prefix ~ '_set_brightness\') == \'off\' }}' }}"
+        continue_on_timeout: true
+        timeout: "00:00:05"
+      - service: script.turn_on
+        data:
+          entity_id: script.{{ prefix }}_set_virt_brightness
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.{{ prefix }}_lock
+
+  - alias: {{ title }} Real Brightness Changed
+    trigger:
+      - platform: state
+        entity_id: sensor.{{ prefix }}_actual_bright
+    condition:
+      - condition: state
+        entity_id: input_boolean.{{ prefix }}_lock
+        state: "off"
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.{{ prefix }}_lock
+      - service: script.turn_on
+        data:
+          entity_id: script.{{ prefix }}_set_virt_brightness
+      - wait_template: "{{ '{{ states(\'script.' ~ prefix ~ '_set_virt_brightness\') == \'off\' }}' }}"
+        continue_on_timeout: true
+        timeout: "00:00:05"
+      - service: script.turn_on
+        data:
+          entity_id: script.{{ prefix }}_set_brightness
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.{{ prefix }}_lock
+
+  - alias: {{ title }} Power Control
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.{{ prefix }}_virt_state
+    condition:
+      - condition: state
+        entity_id: input_boolean.{{ prefix }}_lock
+        state: "off"
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.{{ prefix }}_lock
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.{{ prefix }}_virt_state
+                state: "off"
+            sequence:
+              - service: mqtt.publish
+                data:
+                  retain: true
+                  topic: lightcontrols/{{ room }}/{{ location }}/brightness_set
+                  payload: "0"
+        default:
+          - service: mqtt.publish
+            data:
+              retain: true
+              topic: lightcontrols/{{ room }}/{{ location }}/brightness_set
+              payload: "{{ '{{ states(\'{}\') }}'.format(auto_entity) }}"
+      - service: script.turn_on
+        data:
+          entity_id: script.{{ prefix }}_set_brightness
+      - wait_template: "{{ '{{ states(\'script.' ~ prefix ~ '_set_brightness\') == ''off'' }}' }}"
+        continue_on_timeout: true
+        timeout: "00:00:05"
+      - service: script.turn_on
+        data:
+          entity_id: script.{{ prefix }}_set_virt_brightness
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.{{ prefix }}_lock
+
+
+  - alias: "Reset {{ title }} Topics on MQTT Trigger"
+    description: "Runs the reset script when the reset_button MQTT topic is updated."
+    trigger:
+      - platform: mqtt
+        topic: "lightcontrols/{{ room }}/{{ location }}/reset_button"
+    action:
+      - service: script.reset_all_{{ room }}_{{ location }}_topics
+    mode: single
+
+
+  - alias: "Initialize {{ title }} On First Boot"
+    description: "Resets and initializes MQTT topics if '{{ title }} Created On' sensor is missing."
+    trigger:
+      - platform: homeassistant
+        event: start
+    condition:
+      - condition: template
+        value_template: >
+          {{ '{{ states(\'sensor.' ~ prefix ~ '_created_on\') in [\'unknown\', \'unavailable\', \'\'] }}' }}
+    action:
+      - service: script.reset_all_{{ prefix }}_topics
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/created_on"
+          payload: "{{ '{{ now().isoformat() }}' }}"
+          retain: true
+
+
+
+  {% for n in range(1, 7) %}
+  - alias: {{ title }} Brightness {{ n }} Clamp and Order
+    trigger:
+      - platform: state
+        entity_id: number.{{ prefix }}_bright_{{ n }}
+    action:
+      - variables:
+          current: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_' ~ n ~ '\') | int }}' }}"
+          {% if n < 6 %}
+          upper: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_' ~ (n + 1) ~ '\') | int }}' }}"
+          {% endif %}
+          {% if n > 1 %}
+          lower: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_' ~ (n - 1) ~ '\') | int }}' }}"
+          {% endif %}
+
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ '{{ current < ' ~ n ~ ' }}' }}"
+            sequence:
+              - service: number.set_value
+                target:
+                  entity_id: number.{{ prefix }}_bright_{{ n }}
+                data:
+                  value: {{ n }}
+              - delay: "00:00:00.1"
+              - service: mqtt.publish
+                data:
+                  topic: lightcontrols/{{ room }}/{{ location }}/brightness_{{ n }}
+                  payload: "{{ n }}"
+                  retain: true
+
+          - conditions:
+              - condition: template
+                value_template: "{{ '{{ current > ' ~ (n + 249) ~ ' }}' }}"
+            sequence:
+              - service: number.set_value
+                target:
+                  entity_id: number.{{ prefix }}_bright_{{ n }}
+                data:
+                  value: {{ n + 249 }}
+              - delay: "00:00:00.1"
+              - service: mqtt.publish
+                data:
+                  topic: lightcontrols/{{ room }}/{{ location }}/brightness_{{ n }}
+                  payload: "{{ n + 249 }}"
+                  retain: true
+  {% endfor %}
+
+
+  {% for n in range(1, 6) %}
+  - alias: {{ title }} Bright {{ n }} Order Above {{ n + 1 }}
+    trigger:
+      - platform: state
+        entity_id: number.{{ prefix }}_bright_{{ n }}
+    condition:
+      - condition: template
+        value_template: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_' ~ n ~ '\') | int > states(\'number.' ~ prefix ~ '_bright_' ~ (n + 1) ~ '\') | int }}' }}"
+    action:
+      - variables:
+          val: "{{ '{{ [states(\'number.' ~ prefix ~ '_bright_' ~ n ~ '\') | int + 1, ' ~ (n + 250) ~ '] | min }}' }}"
+      - service: number.set_value
+        target:
+          entity_id: number.{{ prefix }}_bright_{{ n + 1 }}
+        data:
+          value: "{{ '{{ val }}' }}"
+      - delay: "00:00:00.1"
+      - service: mqtt.publish
+        data:
+          topic: lightcontrols/{{ room }}/{{ location }}/brightness_{{ n + 1 }}
+          payload: "{{ '{{ val }}' }}"
+          retain: true
+  {% endfor %}
+
+
+  {% for n in range(2, 7) %}
+  - alias: {{ title }} Bright {{ n }} Order Below {{ n - 1 }}
+    trigger:
+      - platform: state
+        entity_id: number.{{ prefix }}_bright_{{ n }}
+    condition:
+      - condition: template
+        value_template: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_' ~ n ~ '\') | int < states(\'number.' ~ prefix ~ '_bright_' ~ (n - 1) ~ '\') | int }}' }}"
+    action:
+      - variables:
+          val: "{{ '{{ [states(\'number.' ~ prefix ~ '_bright_' ~ n ~ '\') | int - 1, 1] | max }}' }}"
+      - service: number.set_value
+        target:
+          entity_id: number.{{ prefix }}_bright_{{ n - 1 }}
+        data:
+          value: "{{ '{{ val }}' }}"
+      - delay: "00:00:00.1"
+      - service: mqtt.publish
+        data:
+          topic: lightcontrols/{{ room }}/{{ location }}/brightness_{{ n - 1 }}
+          payload: "{{ '{{ val }}' }}"
+          retain: true
+  {% endfor %}

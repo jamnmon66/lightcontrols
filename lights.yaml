@@ -1,0 +1,15 @@
+- room: guest_bed
+  location: ceiling
+  entity: light.ceiling_light
+  auto_entity: input_number.light_controls_brightness_setting
+
+- room: office
+  location: lamp
+  entity: light.office_lamp
+  auto_entity: input_number.light_controls_brightness_setting
+
+- room: testroom
+  location: testloc
+  entity: light.office_lamp
+  auto_entity: input_number.light_controls_brightness_setting
+

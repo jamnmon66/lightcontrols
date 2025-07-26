@@ -1,0 +1,198 @@
+mqtt:
+  - light:
+      name: "Light"
+      unique_id: {{ prefix }}
+      state_topic: "lightcontrols/{{ room }}/{{ location }}/real_state"
+      command_topic: "lightcontrols/{{ room }}/{{ location }}/set"
+      brightness_state_topic: "lightcontrols/{{ room }}/{{ location }}/brightness_state"
+      brightness_command_topic: "lightcontrols/{{ room }}/{{ location }}/brightness_set"
+      effect_state_topic: "lightcontrols/{{ room }}/{{ location }}/effect_state"
+      effect_command_topic: "lightcontrols/{{ room }}/{{ location }}/effect_set"
+      payload_on: "ON"
+      payload_off: "OFF"
+      brightness_scale: 255
+      retain: true
+      effect_list:
+        - High
+        - Medium High
+        - Medium
+        - Medium Low
+        - Low
+        - Very Low
+        - "Off"
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+
+  - switch:
+      name: "Automated Brightness"
+      unique_id: {{ prefix }}_automation_enabled
+      state_topic: "lightcontrols/{{ room }}/{{ location }}/automation_enabled"
+      command_topic: "lightcontrols/{{ room }}/{{ location }}/automation_enabled"
+      device_class: null
+      payload_on: "ON"
+      payload_off: "OFF"
+      retain: true
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+
+  - text:
+      name: "AutoBright Entity"
+      unique_id: {{ prefix }}_auto_brightness_entity
+      state_topic: "lightcontrols/{{ room }}/{{ location }}/auto_brightness_entity"
+      command_topic: "lightcontrols/{{ room }}/{{ location }}/auto_brightness_entity"
+      retain: true
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+
+  - text:
+      name: "Real Entity"
+      unique_id: {{ prefix }}_real_light_entity
+      state_topic: "lightcontrols/{{ room }}/{{ location }}/real_light_entity"
+      command_topic: "lightcontrols/{{ room }}/{{ location }}/real_light_entity"
+      retain: true
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+
+{% for i in range(1, 7) %}
+  - number:
+      name: "Brightness {{ i }}"
+      unique_id: {{ prefix }}_bright_{{ i }}
+      state_topic: "lightcontrols/{{ room }}/{{ location }}/brightness_{{ i }}"
+      command_topic: "lightcontrols/{{ room }}/{{ location }}/brightness_{{ i }}"
+      min: 1
+      max: 255
+      retain: true
+      mode: slider
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+{% endfor %}
+
+  - number:
+      name: "Sartup Min"
+      unique_id: {{ prefix }}_startup_min
+      state_topic: "lightcontrols/{{ room }}/{{ location }}/startup_min"
+      command_topic: "lightcontrols/{{ room }}/{{ location }}/startup_min"
+      min: 1
+      max: 63
+      retain: true
+      mode: slider
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+
+  - number:
+      name: "Startup Delay (x100ms)"
+      unique_id: {{ prefix }}_startup_delay
+      state_topic: "lightcontrols/{{ room }}/{{ location }}/startup_delay"
+      command_topic: "lightcontrols/{{ room }}/{{ location }}/startup_delay"
+      min: 0
+      max: 100
+      step: 1
+      retain: true
+      mode: slider
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+
+  - number:
+      - name: "Virt Brightness"
+        unique_id: {{ prefix }}_virt_brightness
+        state_topic: "lightcontrols/{{ room }}/{{ location }}/brightness_state"
+        command_topic: "lightcontrols/{{ room }}/{{ location }}/brightness_set"
+        min: 0
+        max: 255
+        step: 1
+        mode: slider
+        retain: true
+        device:
+          identifiers: ["{{ prefix }}"]
+          name: "{{ device_name }}"
+
+
+  - number:
+      - name: "Real Brightness"
+        unique_id: {{ prefix }}_real_brightness
+        state_topic: "lightcontrols/{{ room }}/{{ location }}/real_brightness"
+        command_topic: "lightcontrols/{{ room }}/{{ location }}/real_brightness_set"
+        min: 0
+        max: 255
+        step: 1
+        mode: slider
+        retain: true
+        device:
+          identifiers: ["{{ prefix }}"]
+          name: "{{ device_name }}"
+
+  - button:
+      name: "Defaults"
+      unique_id: {{ prefix }}_reset_button
+      command_topic: "lightcontrols/{{ room }}/{{ location }}/reset_button"
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+
+  - binary_sensor:
+      name: "Real State"
+      unique_id: {{ prefix }}_real_state_mqtt
+      state_topic: "lightcontrols/{{ room }}/{{ location }}/real_state"
+      payload_on: "ON"
+      payload_off: "OFF"
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+
+  - binary_sensor:
+      name: "Virt State"
+      unique_id: {{ prefix }}_virt_state_mqtt
+      state_topic: "lightcontrols/{{ room }}/{{ location }}/set"
+      payload_on: "ON"
+      payload_off: "OFF"
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+
+  - sensor:
+      name: "Actual Bright"
+      unique_id: {{ prefix }}_real_brightness_from_entity
+      state_topic: "lightcontrols/{{ room }}/{{ location }}/real_brightness"
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+
+  - sensor:
+      name: "Converted Bright"
+      unique_id: {{ prefix }}_real_brightness_set
+      state_topic: "lightcontrols/{{ room }}/{{ location }}/real_brightness_set"
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+
+  - sensor:
+      name: "Virt Brt Set"
+      unique_id: {{ prefix }}_virtual_brightness_set
+      state_topic: "lightcontrols/{{ room }}/{{ location }}/brightness_set"
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+
+  - sensor:
+      name: "Real Entity"
+      unique_id: {{ prefix }}_real_light_entity
+      state_topic: "lightcontrols/{{ room }}/{{ location }}/real_light_entity"
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+
+  - sensor:
+      name: "Created On"
+      unique_id: {{ prefix }}_created_on
+      state_topic: "lightcontrols/{{ room }}/{{ location }}/created_on"
+      device:
+        identifiers: ["{{ prefix }}"]
+        name: "{{ device_name }}"
+

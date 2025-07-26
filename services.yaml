@@ -1,0 +1,2 @@
+generate_all:
+  description: "Generate YAML for all configured lights from input_text.light_config_json"

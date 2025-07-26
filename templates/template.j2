@@ -1,0 +1,12 @@
+template:
+  - binary_sensor:
+      - name: "{{ title }} Real State"
+        state: "{{ '{{ states(states(\'text.' ~ prefix ~ '_real_light_entity\')) }}' }}"
+
+  - sensor:
+      - name: "{{ title }} Real Brightness"
+        state: "{{ '{{ state_attr(states(\'text.' ~ prefix ~ '_real_light_entity\'), \'brightness\') | default(\'0\') | int(0) }}' }}"
+
+  - sensor:
+      - name: "{{ title }} Real Last Changed"
+        state: "{{ '{{ states[states(\'text.' ~ prefix ~ '_real_light_entity\')].last_updated }}' }}"

@@ -1,0 +1,14 @@
+{
+  "domain": "lightcontrols",
+  "name": "Light Controls",
+  "version": "1.0.1",
+  "documentation": "https://github.com/example/lightcontrols",
+  "logo": "icon.png",
+  "requirements": [
+    "jinja2"
+  ],
+  "codeowners": [
+    "@your_github_username"
+  ],
+  "iot_class": "local_push"
+}

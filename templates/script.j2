@@ -1,0 +1,370 @@
+script:
+  {{ prefix }}_set_brightness:
+    alias: {{ title }} Set Real Brightness
+    sequence:
+      - variables:
+          virt:
+            - 3
+            - 15
+            - 38
+            - 61
+            - 84
+            - 107
+            - 130
+            - 153
+            - 176
+            - 199
+            - 222
+            - 245
+          b1: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_1\') | default(15) | int }}' }}"
+          b2: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_2\') | default(63) | int }}' }}"
+          b3: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_3\') | default(111) | int }}' }}"
+          b4: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_4\') | default(159) | int }}' }}"
+          b5: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_5\') | default(207) | int }}' }}"
+          b6: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_6\') | default(255) | int }}' }}"
+          real:
+            - 0
+            - "{{ '{{ b1 }}' }}"
+            - "{{ '{{ (b1 + b2) / 2 | round(0) | int }}' }}"
+            - "{{ '{{ b2 }}' }}"
+            - "{{ '{{ (b2 + b3) / 2 | round(0) | int }}' }}"
+            - "{{ '{{ b3 }}' }}"
+            - "{{ '{{ (b3 + b4) / 2 | round(0) | int }}' }}"
+            - "{{ '{{ b4 }}' }}"
+            - "{{ '{{ (b4 + b5) / 2 | round(0) | int }}' }}"
+            - "{{ '{{ b5 }}' }}"
+            - "{{ '{{ (b5 + b6) / 2 | round(0) | int }}' }}"
+            - "{{ '{{ b6 }}' }}"
+          virt_set: >-
+            {{ '{{ (states(\'sensor.' ~ prefix ~ '_virt_brt_set\') | default(0) | int) '}} }}
+          pos_options:
+            - "{{ '{{ virt_set <= virt[0]}}' }}"
+            - "{{ '{{ virt[0] < virt_set < virt[1]}}' }}"
+            - "{{ '{{ virt[1] <= virt_set < virt[2]}}' }}"
+            - "{{ '{{ virt[2] <= virt_set < virt[3]}}' }}"
+            - "{{ '{{ virt[3] <= virt_set < virt[4]}}' }}"
+            - "{{ '{{ virt[4] <= virt_set < virt[5]}}' }}"
+            - "{{ '{{ virt[5] <= virt_set < virt[6]}}' }}"
+            - "{{ '{{ virt[6] <= virt_set < virt[7]}}' }}"
+            - "{{ '{{ virt[7] <= virt_set < virt[8]}}' }}"
+            - "{{ '{{ virt[8] <= virt_set < virt[9]}}' }}"
+            - "{{ '{{ virt[9] <= virt_set < virt[10]}}' }}"
+            - "{{ '{{ virt[10] <= virt_set < virt[11]}}' }}"
+            - "{{ '{{ virt_set >= virt[11]}}' }}"
+          position: |-{% raw %}
+            {% for item in pos_options %}
+              {% if item == true %}{% endraw %}
+                {{ '{{loop.index0 '}} }}{% raw %}
+              {% endif %}
+            {% endfor %}{% endraw %}
+          real_entity: "{{ '{{ states(\'sensor.' ~ prefix ~ '_real_light_entity\') }}' }}"
+          calc: true
+          temp_real_set: |-{% raw %}
+            {% if ( position == 0 or position == 1 ) %}{% endraw %}
+              {{ '{{ real[position] '}} }}{% raw %}
+            {% elif ( position == 12 ) %}{% endraw %}
+              {{ '{{ real[11] '}} }}{% raw %}
+            {% else %}{% endraw %}
+              {{ '{{ ( virt_set - virt[position - 1] ) / ( virt[position ] - virt[position - 1] ) * ( real[position] - real[position - 1] ) + real[position - 1] '}} }}{% raw %}
+            {% endif %}{% endraw %}
+          real_set: "{{ '{{ temp_real_set | default(0) | round(0) | int }}' }}"
+      - if:
+          - condition: template{% raw %}
+            value_template: "{{ real_set == 0 }}"{% endraw %}
+        then:
+          - action: light.turn_off
+            data:
+              entity_id: "{{ '{{ real_entity }}' }}"
+          - wait_template: "{{ '{{ states(real_entity) == \'off\' }}' }}"
+            continue_on_timeout: true
+            timeout: "00:00:05"
+          - action: mqtt.publish
+            data:
+              topic: lightcontrols/{{ room }}/{{ location }}/set
+              payload: "OFF"
+              retain: true
+          - action: mqtt.publish
+            data:
+              topic: lightcontrols/{{ room }}/{{ location }}/real_brightness_set
+              payload: 0
+              retain: true
+        else:
+          - action: light.turn_on
+            data:
+              entity_id: "{{ '{{ real_entity }}' }}"
+              brightness: "{{ '{{ real_set }}' }}"
+          - wait_template: >-{% raw %}
+              {% set rset = real_set | int %}
+              {% set b = state_attr(real_entity, 'brightness') %}
+              {% set b = (b | int) if b is not none else rset %}
+              {{ b > (rset - 5) and b < (rset + 5) }}{% endraw %}
+            continue_on_timeout: true
+            timeout: "00:00:05"
+            continue_on_timeout: true
+            timeout: "00:00:05"
+          - action: mqtt.publish
+            data:
+              topic: lightcontrols/{{ room }}/{{ location }}/set
+              payload: "ON"
+              retain: true
+          - action: mqtt.publish
+            data:
+              topic: lightcontrols/{{ room }}/{{ location }}/real_brightness_set{% raw %}
+              payload: "{{ temp_real_set }}"{% endraw %}
+              retain: true
+    mode: parallel
+    max: 10
+
+
+  {{ prefix }}_set_virt_brightness:
+    alias: {{ title }} Set Virtual Brightness
+    sequence:
+      - variables:
+          virt:
+            - 3
+            - 15
+            - 38
+            - 61
+            - 84
+            - 107
+            - 130
+            - 153
+            - 176
+            - 199
+            - 222
+            - 245
+          b1: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_1\') | int }}' }}"
+          b2: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_2\') | int }}' }}"
+          b3: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_3\') | int }}' }}"
+          b4: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_4\') | int }}' }}"
+          b5: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_5\') | int }}' }}"
+          b6: "{{ '{{ states(\'number.' ~ prefix ~ '_bright_6\') | int }}' }}"
+          real:
+            - "{{ '{{ 0 }}' }}"
+            - "{{ '{{ b1 | int }}' }}"
+            - "{{ '{{ ((b1 | int + b2 | int) / 2) | round(0) | int }}' }}"
+            - "{{ '{{ b2 | int }}' }}"
+            - "{{ '{{ ((b2 | int + b3 | int) / 2) | round(0) | int }}' }}"
+            - "{{ '{{ b3 | int }}' }}"
+            - "{{ '{{ ((b3 | int + b4 | int) / 2) | round(0) | int }}' }}"
+            - "{{ '{{ b4 | int }}' }}"
+            - "{{ '{{ ((b4 | int + b5 | int) / 2) | round(0) | int }}' }}"
+            - "{{ '{{ b5 | int }}' }}"
+            - "{{ '{{ ((b5 | int + b6 | int) / 2) | round(0) | int }}' }}"
+            - "{{ '{{ b6 | int }}' }}"
+          real_entity: "{{ '{{ states(\'sensor.' ~ prefix ~ '_real_light_entity\') }}' }}"
+          real_brightness: "{{ '{{ states(\'sensor.' ~ prefix ~ '_actual_bright\') | int }}' }}"
+          real_brightness_set: "{{ '{{ states(\'sensor.' ~ prefix ~ '_real_brightness_set\') | int }}' }}"
+          real_set: >-{% raw %}
+            {% if (real_brightness - 5 < real_brightness_set < real_brightness + 5) %}{% endraw %}
+              {{ '{{ real_brightness_set }}' }}{% raw %}
+            {% else %}{% endraw %}
+              {{ '{{ real_brightness }}' }}{% raw %}
+            {% endif %}{% endraw %}
+          pos_options:
+            - "{{ '{{ real_set <= real[0] }}' }}"
+            - "{{ '{{ real[0] < real_set < real[1] }}' }}"
+            - "{{ '{{ real[1] <= real_set < real[2] }}' }}"
+            - "{{ '{{ real[2] <= real_set < real[3] }}' }}"
+            - "{{ '{{ real[3] <= real_set < real[4] }}' }}"
+            - "{{ '{{ real[4] <= real_set < real[5] }}' }}"
+            - "{{ '{{ real[5] <= real_set < real[6] }}' }}"
+            - "{{ '{{ real[6] <= real_set < real[7] }}' }}"
+            - "{{ '{{ real[7] <= real_set < real[8] }}' }}"
+            - "{{ '{{ real[8] <= real_set < real[9] }}' }}"
+            - "{{ '{{ real[9] <= real_set < real[10] }}' }}"
+            - "{{ '{{ real[10] <= real_set < real[11] }}' }}"
+            - "{{ '{{ real_set >= real[11] }}' }}"
+          position: |-{% raw %}
+            {% for item in pos_options %}
+              {% if item == true %}{% endraw %}
+                {{ '{{ loop.index0 }}' }}{% raw %}
+              {% endif %}
+            {% endfor %}{% endraw %}
+          calc: true
+          temp_virt_set: |-{% raw %}
+            {% if (position == 0 or position == 1) %}{% endraw %}
+              {{ '{{ real[position] | int }}' }}{% raw %}
+            {% elif (position == 12) %}{% endraw %}
+              {{ '{{ real[11] | int }}' }}{% raw %}
+            {% else %}{% endraw %}
+              {{ '{{ ((real_set | int - real[position - 1] | int) / (real[position] | int - real[position - 1] | int)) * (virt[position] - virt[position - 1]) + virt[position - 1] }}' }}{% raw %}
+            {% endif %}{% endraw %}
+          virt_set: "{{ '{{ temp_virt_set | default(0) | round(0) | int }}' }}"
+      - if:
+          - condition: template{% raw %}
+            value_template: "{{ real_set == 0 }}"{% endraw %}
+        then:
+          - action: light.turn_off
+            target:
+              entity_id: light.{{ prefix }}
+          - action: mqtt.publish
+            data:
+              topic: lightcontrols/{{ room }}/{{ location }}/real_state
+              payload: "OFF"
+          - action: mqtt.publish
+            data:
+              topic: lightcontrols/{{ room }}/{{ location }}/brightness_state
+              payload: "0"
+        else:
+          - action: light.turn_on
+            data:{% raw %}
+              brightness: >-
+                {{ virt_set }}{% endraw %}
+            target:
+              entity_id: light.{{ prefix }}
+          - action: mqtt.publish
+            data:
+              topic: lightcontrols/{{ room }}/{{ location }}/real_state
+              payload: "ON"
+          - action: mqtt.publish
+            data:
+              topic: lightcontrols/{{ room }}/{{ location }}/brightness_state{% raw %}
+              payload: "{{ virt_set }}"{% endraw %}
+    mode: parallel
+    max: 10
+
+
+  reset_all_{{ prefix }}_topics:
+    alias: Reset All {{ title }} MQTT Topics
+    sequence:
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/auto_brightness_entity"
+          payload: "input_number.light_controls_brightness_setting"
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/automation_enabled"
+          payload: false
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/brightness_1"
+          payload: 15
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/brightness_2"
+          payload: 61
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/brightness_3"
+          payload: 107
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/brightness_4"
+          payload: 153
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/brightness_5"
+          payload: 199
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/brightness_6"
+          payload: 255
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/brightness_set"
+          payload: 127
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/brightness_state"
+          payload: 127
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/effect_set"
+          payload: "high"
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/effect_state"
+          payload: "high"
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/real_brightness"
+          payload: 255
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/real_brightness_set"
+          payload: 255
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/real_light_entity"
+          payload: "light.light"
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/real_state"
+          payload: "on"
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/set"
+          payload: 255
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/startup_delay"
+          payload: 0
+      - service: mqtt.publish
+        data:
+          topic: "lightcontrols/{{ room }}/{{ location }}/startup_min"
+          payload: 31
+    mode: single
+
+
+  set_{{prefix}}_bright_1:
+    alias: Set {{ title }}Brightness 1 from Virtual
+    sequence:
+      - service: number.set_value
+        target:
+          entity_id: number.{{ prefix }}_bright_1
+        data:
+          value: >-
+            {{ '{{ (states("number.' ~ prefix ~ '_virt_brightness") if states("number.' ~ prefix ~ '_virt_brightness") not in ["unknown", "unavailable"] else "0") | float }}' }}
+
+  set_{{prefix}}_bright_2:
+    alias: Set {{ title }}Brightness 2 from Virtual
+    sequence:
+      - service: number.set_value
+        target:
+          entity_id: number.{{ prefix }}_bright_2
+        data:
+          value: >-
+            {{ '{{ (states("number.' ~ prefix ~ '_virt_brightness") if states("number.' ~ prefix ~ '_virt_brightness") not in ["unknown", "unavailable"] else "0") | float }}' }}
+
+  set_{{prefix}}_bright_3:
+    alias: Set {{ title }}Brightness 3 from Virtual
+    sequence:
+      - service: number.set_value
+        target:
+          entity_id: number.{{ prefix }}_bright_3
+        data:
+          value: >-
+            {{ '{{ (states("number.' ~ prefix ~ '_virt_brightness") if states("number.' ~ prefix ~ '_virt_brightness") not in ["unknown", "unavailable"] else "0") | float }}' }}
+
+  set_{{prefix}}_bright_4:
+    alias: Set {{ title }}Brightness 4 from Virtual
+    sequence:
+      - service: number.set_value
+        target:
+          entity_id: number.{{ prefix }}_bright_4
+        data:
+          value: >-
+            {{ '{{ (states("number.' ~ prefix ~ '_virt_brightness") if states("number.' ~ prefix ~ '_virt_brightness") not in ["unknown", "unavailable"] else "0") | float }}' }}
+
+  set_{{prefix}}_bright_5:
+    alias: Set {{ title }}Brightness 5 from Virtual
+    sequence:
+      - service: number.set_value
+        target:
+          entity_id: number.{{ prefix }}_bright_5
+        data:
+          value: >-
+            {{ '{{ (states("number.' ~ prefix ~ '_virt_brightness") if states("number.' ~ prefix ~ '_virt_brightness") not in ["unknown", "unavailable"] else "0") | float }}' }}
+
+  set_{{prefix}}_bright_6:
+    alias: Set {{ title }}Brightness 6 from Virtual
+    sequence:
+      - service: number.set_value
+        target:
+          entity_id: number.{{ prefix }}_bright_6
+        data:
+          value: >-
+            {{ '{{ (states("number.' ~ prefix ~ '_virt_brightness") if states("number.' ~ prefix ~ '_virt_brightness") not in ["unknown", "unavailable"] else "0") | float }}' }}
+
+
